@@ -39,13 +39,13 @@ std::vector<unsigned short>Object3d::indices;
 //Object3d::VertexPosNormalUv Object3d::vertices[vertexCount];
 //unsigned short Object3d::indices[planeCount * 3];
 
-void Object3d::StaticInitialize(ID3D12Device * device, int window_width, int window_height)
+void Object3d::StaticInitialize(ID3D12Device* device, int window_width, int window_height)
 {
 	// nullptrチェック
 	assert(device);
 
 	Object3d::device = device;
-		
+
 	// デスクリプタヒープの初期化
 	InitializeDescriptorHeap();
 
@@ -63,7 +63,7 @@ void Object3d::StaticInitialize(ID3D12Device * device, int window_width, int win
 
 }
 
-void Object3d::PreDraw(ID3D12GraphicsCommandList * cmdList)
+void Object3d::PreDraw(ID3D12GraphicsCommandList* cmdList)
 {
 	// PreDrawとPostDrawがペアで呼ばれていなければエラー
 	assert(Object3d::cmdList == nullptr);
@@ -85,9 +85,9 @@ void Object3d::PostDraw()
 	Object3d::cmdList = nullptr;
 }
 
-Object3d * Object3d::Create()
+Object3d* Object3d::Create()
 {
-	
+
 	// 3Dオブジェクトのインスタンスを生成
 	Object3d* object3d = new Object3d();
 	if (object3d == nullptr) {
@@ -140,7 +140,7 @@ void Object3d::CameraMoveVector(XMFLOAT3 move)
 void Object3d::InitializeDescriptorHeap()
 {
 	HRESULT result = S_FALSE;
-	
+
 	// デスクリプタヒープを生成	
 	D3D12_DESCRIPTOR_HEAP_DESC descHeapDesc = {};
 	descHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
@@ -331,7 +331,7 @@ void Object3d::LoadTexture()
 	ScratchImage scratchImg{};
 
 	// WICテクスチャのロード
-	result = LoadFromWICFile( L"Resources/tex1.png", WIC_FLAGS_NONE, &metadata, scratchImg);
+	result = LoadFromWICFile(L"Resources/tex1.png", WIC_FLAGS_NONE, &metadata, scratchImg);
 	assert(SUCCEEDED(result));
 
 	ScratchImage mipChain{};
@@ -404,7 +404,7 @@ void Object3d::CreateModel()
 	//ファイルストリーム
 	std::ifstream file;
 	//.objファイルを開く
-	file.open("Resources/triangle/triangle.obj");
+	file.open("Resources/triangle/triangle_tex.obj");
 	//ファイルオープン失敗をチェック
 	if (file.fail())
 	{
@@ -422,7 +422,7 @@ void Object3d::CreateModel()
 
 		//半角スペース区切りで行の先頭文字を取得
 		string key;
-		getline(line_stream, key,' ');
+		getline(line_stream, key, ' ');
 		//先頭文字列がvなら頂点座標
 		if (key == "v")
 		{
@@ -434,10 +434,35 @@ void Object3d::CreateModel()
 			//座標データに追加
 			positions.emplace_back(position);
 			//頂点データに追加
-			VertexPosNormalUv vertex{};
-			vertex.pos = position;
-			vertices.emplace_back(vertex);
+			//VertexPosNormalUv vertex{};
+			//vertex.pos = position;
+			//vertices.emplace_back(vertex);
 		}
+		//先頭文字列がvtならテクスチャ
+		if (key == "vt")
+		{
+			//U,V成分読み込み
+			XMFLOAT2 texcoord{};
+			line_stream >> texcoord.x;
+			line_stream >> texcoord.y;
+			//V方向反転
+			texcoord.y = 1.0f - texcoord.y;
+			//テクスチャ座標データに追加
+			texcoords.emplace_back(texcoord);
+		}
+		//先頭文字列がvnなら法線ベクトル
+		if (key == "vn")
+		{
+			//X,Y,Z成分読み込み
+			XMFLOAT3 normal{};
+			line_stream >> normal.x;
+			line_stream >> normal.y;
+			line_stream >> normal.z;
+			//法線ベクトルデータに追加
+			normals.emplace_back(normal);
+		}
+
+
 		//先頭文字列がfならポリゴン(三角形)
 		if (key == "f")
 		{
@@ -447,15 +472,30 @@ void Object3d::CreateModel()
 			{
 				//頂点インデックス1個分の文字列ストリームに変換して解析しやすくする
 				std::istringstream index_stream(index_string);
-				unsigned short indexPosition;
+				unsigned short indexPosition, indexNormal, indexTexcoord;
 				index_stream >> indexPosition;
+				index_stream.seekg(1, ios_base::cur);//スラッシュを飛ばす
+				index_stream >> indexTexcoord;
+				index_stream.seekg(1, ios_base::cur);//スラッシュを飛ばす
+				index_stream >> indexNormal;
+
+				//頂点データの追加
+				VertexPosNormalUv vertex{};
+				vertex.pos = positions[indexPosition - 1];
+				vertex.normal = normals[indexNormal - 1];
+				vertex.uv = texcoords[indexTexcoord - 1];
+				vertices.emplace_back(vertex);
+				//インデックスデータの追加
+				indices.emplace_back((unsigned short)indices.size());
+
 				//頂点インデックスに追加
-				indices.emplace_back(indexPosition - 1);
+				//indices.emplace_back(indexPosition - 1);
 			}
 		}
 	}
 	file.close();
 	std::vector<VertexPosNormalUv> realVertices;
+
 	//// 頂点座標の計算（重複あり）
 	//{
 	//	realVertices.resize((division + 1) * 2);
@@ -595,7 +635,7 @@ void Object3d::CreateModel()
 	result = vertBuff->Map(0, nullptr, (void**)&vertMap);
 	if (SUCCEEDED(result)) {
 		//memcpy(vertMap, vertices, sizeof(vertices));
-		std::copy(vertices.begin(),vertices.end(), vertMap);
+		std::copy(vertices.begin(), vertices.end(), vertMap);
 		vertBuff->Unmap(0, nullptr);
 	}
 
@@ -704,7 +744,7 @@ void Object3d::Draw()
 	// nullptrチェック
 	assert(device);
 	assert(Object3d::cmdList);
-		
+
 	// 頂点バッファの設定
 	cmdList->IASetVertexBuffers(0, 1, &vbView);
 	// インデックスバッファの設定
