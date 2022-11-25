@@ -10,7 +10,8 @@ GameScene::GameScene()
 GameScene::~GameScene()
 {
 	delete spriteBG;
-	delete object3d;/*
+	delete object3d;
+	delete object3d1;/*
 	delete(spriteBG);
 	delete(object3d);*/
 }
@@ -43,7 +44,9 @@ void GameScene::Initialize(DirectXCommon* dxCommon, Input* input)
 
 	// 3Dオブジェクト生成
 	object3d = Object3d::Create();
-	object3d->Update();
+	object3d->Update(); 
+	object3d1 = Object3d::Create();
+	object3d1->Update();
 }
 
 void GameScene::Update()
@@ -72,6 +75,7 @@ void GameScene::Update()
 
 		// 座標の変更を反映
 		object3d->SetPosition(position);
+		object3d1->SetPosition(position);
 	}
 
 	// カメラ移動
@@ -113,6 +117,7 @@ void GameScene::Draw()
 
 	// 3Dオブクジェクトの描画
 	object3d->Draw();
+	object3d1->Draw();
 
 	/// <summary>
 	/// ここに3Dオブジェクトの描画処理を追加できる
